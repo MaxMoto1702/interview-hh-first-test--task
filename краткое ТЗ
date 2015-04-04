@@ -8,6 +8,18 @@ public static void main(String[] args) {
  System.out.println(c);
 }
 
+Данный код вернет -6, потому что возникает переполнение типа при сложении. 
+Сменить тип переменной "с" на лонг не достаточно, потому что int + int результат с наибольшим типом из слагаемых, т.е. int.
+Для получения правильной суммы необходимо одно из слагаемых явно привести к лонгу и соотвесчтвенно тип переменной "с" сменить на лонг.
+
+    public static void main(String[] args) {
+        int a = 0x7ffffffc;
+        int b = 0x7ffffffe;
+
+        long c = a + b;
+        System.out.println(c);
+    }
+
 2. Программа в составе своём содержит модуль для рассчёта стоимости путешествия, на основе используемого автомобиля и множества других различных данных. Что в этом коде вам кажется неправильным, модифицируте его таким образом, чтобы в дальнейшем разработчик мог добавлять новую марку автомобиля с минимальными трудозатратами
 
 class Travel {
@@ -60,22 +72,93 @@ class Ford {
     }
   }
 
+Судя по коду в путешествии используется только один автомобиль (а так же по условию задачи), соотвественно в классе путешествия должно быть одно поле автомобиля. 
+Так же для каждого поля дублируется код, который потенциально может привести к ошибке. 
+Не из условия не из кола не понятно что означает цифры 5 и 3:
+    ford.amortization() * 5
+    opel.amortization() * 3
+Хорошим решением было бы использовать родительский класс в который вынести всю общую логику автомобиля. 
+В результате для добавления новой марки достаточно наследоваться от родительского класса и при создании объекта этого класса указать значения основных свойств новой марки автомобиля.
+Пример ниже.
+
+public class Travel {
+    
+    public Car car;
+
+    public Travel(Car car) {
+        this.car = car;
+    }
+
+    public void doTravel() {
+        if (car != null) {
+            System.out.println((car.getAmortization() * car.getIncomprehensibleValue() + car.getRepair()) * someInnerLogic());
+        }
+    }
+
+    private float someInnerLogic() {
+        return new Random().nextFloat() + 1;
+    }
+
+}
+
+abstract class Car {
+    
+    int amortization;
+    int repair;
+    int incomprehensibleValue;
+    
+    Car(int amortization, int repair, int incomprehensibleValue) {
+        this.amortization = amortization;
+        this.repair = repair;
+        this.incomprehensibleValue = incomprehensibleValue;
+    }
+
+    int getAmortization() {
+        return amortization;
+    }
+
+    int getRepair() {
+        return repair;
+    }
+
+    int getIncomprehensibleValue() {
+        // чтобы правильно расположить в коде эту логику надо понять что это вообще, а пока что это просто непонятное значение, которое почему-то зависит от марки автомобиля и хорошим тоном было бы данное значение расположить где-то рядом с маркой автомобиля, а может это значение зависит от путешествия, в таком случае не стоит выносить из класса путешествия. Одним словом "неопределенность", но с целью облегчения работы разработчика вынесено сюда
+        return incomprehensibleValue;
+    }
+}
+
+class Ford extends Car {
+    
+    public Ford() {
+        super(5, 100, 5);
+    }
+}
+
+class Opel extends Car {
+    
+    public Opel() {
+        super(10, 200, 3);
+    }
+}
+
 
 3. Представим, что в некоем абстрактном складском приложении смартфоны представлены классом SmartPhone. Содержит ли класс  SmartPhone какие либо ошибки?
 
 class SmartPhone {
     String model;
-    Date date;
+    Date date; <- это не ошибка, но тут желательно использовать Calendar
     String revision;
 
     public SmartPhone(String model, Date date, String revision) {
-      model = model;
-      date = date;
-      revision = revision;
+      model = model; <- тут ошибка
+      date = date; <- тут ошибка
+      revision = revision; <- тут ошибка
+      //ошибка в том что тут получится присваивание значения параметра параметру, потому что имя параметра перекрывает поле класса
     }
 
     public int hashCode() {
       return new Random().nextInt();
+      // данный метод должен для одного объекта возвращать всегда одинаковое значение
     }
 
     @Override
@@ -85,9 +168,10 @@ class SmartPhone {
 
       SmartPhone that = (SmartPhone) o;
 
-      if (!date.equals(that.date)) return false;
-      if (!model.equals(that.model)) return false;
-      if (!revision.equals(that.revision)) return false;
+      if (!date.equals(that.date)) return false;  <- тут ошибка
+      if (!model.equals(that.model)) return false; <- тут ошибка
+      if (!revision.equals(that.revision)) return false; <- тут ошибка
+      // Может вылететить NullPointerException
 
       return true;
     }
@@ -98,3 +182,46 @@ class SmartPhone {
      *
      */
   }
+
+
+Исправленный вариант:
+
+class SmartPhone {
+    
+    String model;
+    Calendar date;
+    String revision;
+
+    public SmartPhone(String model, Calendar date, String revision) {
+        this.model = model;
+        this.date = date;
+        this.revision = revision;
+    }
+
+    @Override
+    public int hashCode() {
+        return ( model != null ? model.hashCode() : 0 ) +
+                ( date != null ? date.hashCode() : 0 ) +
+                ( revision != null ? revision.hashCode() : 0);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        SmartPhone that = (SmartPhone) o;
+
+        if (date != null && !date.equals(that.date)) return false;
+        if (model != null && !model.equals(that.model)) return false;
+        if (revision != null && !revision.equals(that.revision)) return false;
+
+        return true;
+    }
+    /**
+     * setters, getters and
+     * some important methods
+     *
+     *
+     */
+}
